@@ -1,0 +1,15 @@
+{
+  "name": "food_bridge",
+  "version": "1.0.0",
+  "description": "Urban Food Waste Redistribution & Delivery Platform",
+  "private": true,
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "preview:frontend": "npm --prefix frontend run preview",
+    "start:backend": "npm --prefix backend start",
+    "test:backend": "npm --prefix backend test"
+  }
+}

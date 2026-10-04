@@ -1,0 +1,164 @@
+// Prisma Schema for FoodBridge - Urban Food Waste Redistribution System
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password_hash String
+  role          String         // DONOR, RECIPIENT, VOLUNTEER, ADMIN
+  phone         String?
+  address       String?
+  created_at    DateTime       @default(now())
+
+  donor         Donor?
+  recipient     Recipient?
+  volunteer     Volunteer?
+  feedback      Feedback[]
+  notifications Notification[]
+  admin_logs    AdminLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Donor {
+  id                String         @id @default(uuid())
+  user_id           String         @unique
+  user              User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  organization_name String
+  donor_type        String         @default("RESTAURANT") // RESTAURANT, HOUSEHOLD, EVENT, GROCERY
+  verified          Boolean        @default(false)
+
+  food_listings     FoodListing[]
+
+  @@index([user_id])
+}
+
+model Recipient {
+  id                  String      @id @default(uuid())
+  user_id             String      @unique
+  user                User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  organization_name   String
+  capacity            Int         @default(50) // estimated people served per day
+  verified            Boolean     @default(false)
+  registration_number String?
+
+  claims              Claim[]
+
+  @@index([user_id])
+}
+
+model Volunteer {
+  id                  String      @id @default(uuid())
+  user_id             String      @unique
+  user                User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  availability_status String      @default("AVAILABLE") // AVAILABLE, BUSY, OFFLINE
+  vehicle_type        String      @default("CAR") // BICYCLE, MOTORCYCLE, CAR, VAN, TRUCK
+
+  pickups             Pickup[]
+
+  @@index([user_id])
+}
+
+model FoodListing {
+  id              String        @id @default(uuid())
+  donor_id        String
+  donor           Donor         @relation(fields: [donor_id], references: [id], onDelete: Cascade)
+  food_type       String        // e.g. "Paneer Butter Masala & Naan", "Fresh Apples"
+  category        String        @default("COOKED") // VEG, NON_VEG, PACKAGED, COOKED
+  quantity        Float         // e.g. 15.5
+  unit            String        // e.g. "kg", "servings", "boxes"
+  expiry_time     DateTime
+  pickup_location String
+  pickup_lat      Float
+  pickup_lng      Float
+  status          String        @default("AVAILABLE") // AVAILABLE, CLAIMED, PICKED_UP, EXPIRED, CANCELLED
+  image_url       String?
+  created_at      DateTime      @default(now())
+
+  claims          Claim[]
+
+  @@index([donor_id])
+  @@index([status])
+  @@index([expiry_time])
+  @@index([status, expiry_time])
+}
+
+model Claim {
+  id           String      @id @default(uuid())
+  listing_id   String
+  listing      FoodListing @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+  recipient_id String
+  recipient    Recipient   @relation(fields: [recipient_id], references: [id], onDelete: Cascade)
+  claimed_at   DateTime    @default(now())
+  status       String      @default("CONFIRMED") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+
+  pickup       Pickup?
+  feedback     Feedback[]
+
+  @@index([listing_id])
+  @@index([recipient_id])
+  @@index([status])
+}
+
+model Pickup {
+  id            String       @id @default(uuid())
+  claim_id      String       @unique
+  claim         Claim        @relation(fields: [claim_id], references: [id], onDelete: Cascade)
+  volunteer_id  String?
+  volunteer     Volunteer?   @relation(fields: [volunteer_id], references: [id], onDelete: SetNull)
+  pickup_time   DateTime?
+  delivery_time DateTime?
+  status        String       @default("ASSIGNED") // ASSIGNED, IN_TRANSIT, DELIVERED
+
+  @@index([claim_id])
+  @@index([volunteer_id])
+  @@index([status])
+}
+
+model Feedback {
+  id               String   @id @default(uuid())
+  user_id          String
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  related_claim_id String
+  claim            Claim    @relation(fields: [related_claim_id], references: [id], onDelete: Cascade)
+  rating           Int      // 1 to 5
+  comments         String?
+  created_at       DateTime @default(now())
+
+  @@index([user_id])
+  @@index([related_claim_id])
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  message    String
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  @@index([user_id])
+  @@index([user_id, is_read])
+}
+
+model AdminLog {
+  id           String   @id @default(uuid())
+  admin_id     String
+  admin        User     @relation(fields: [admin_id], references: [id], onDelete: Cascade)
+  action       String   // e.g., "VERIFIED_ORGANIZATION", "DELETE_LISTING"
+  target_table String   // e.g., "recipients", "food_listings"
+  target_id    String
+  timestamp    DateTime @default(now())
+
+  @@index([admin_id])
+}
